@@ -1366,6 +1366,33 @@ public:
 
     /// @}
 
+    /// \brief Binds binary data.
+    void bind_binary(
+        short param_index,
+        const uint8_t* value,
+        std::size_t value_size,
+        param_direction direction = PARAM_IN);
+
+    /// \brief Binds binary data.
+    void bind_binary(
+        short param_index,
+        std::vector<uint8_t> const& value,
+        param_direction direction = PARAM_IN);
+
+    /// \brief Binds binary data.
+    void bind_binary(
+        short param_index,
+        std::vector<uint8_t> const& value,
+        bool const* nulls,
+        param_direction direction = PARAM_IN);
+
+    /// \brief Binds binary data.
+    void bind_binary(
+        short param_index,
+        std::vector<uint8_t> const& value,
+        uint8_t const* null_sentry,
+        param_direction direction = PARAM_IN);
+
     /// \brief Sets descriptions for parameters in the prepared statement.
     ///
     /// If your prepared SQL query has any parameter markers, ? (question  mark)

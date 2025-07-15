@@ -2418,6 +2418,43 @@ public:
             NANODBC_THROW_DATABASE_ERROR(stmt_, SQL_HANDLE_STMT);
     }
 
+    void bind_binary(
+        param_direction direction,
+        short param_index,
+        const uint8_t* value,
+        std::size_t value_size,
+        bool const* nulls = nullptr,
+        uint8_t const* null_sentry = nullptr)
+    {
+        const std::size_t batch_size = 1;
+        bound_parameter param;
+        prepare_bind(param_index, batch_size, direction, param);
+
+        const size_t max_length = value_size;
+        binary_data_[param_index] = std::vector<uint8_t>(max_length, 0);
+        std::memcpy(
+            binary_data_[param_index].data(),
+            value,
+            value_size);
+
+        if (null_sentry)
+        {
+            if (std::memcmp(value, null_sentry, value_size) != 0)
+                bind_len_or_null_[param_index][0] = value_size;
+        }
+        else if (nulls)
+        {
+            if (!nulls[0])
+                bind_len_or_null_[param_index][0] = value_size; // null terminated
+        }
+        else
+        {
+            bind_len_or_null_[param_index][0] = value_size;
+        }
+        bound_buffer<uint8_t> buffer(binary_data_[param_index].data(), batch_size, max_length);
+        bind_parameter(param, buffer);
+    }
+
     void describe_parameters(const short param_index)
     {
         RETCODE rc;
@@ -5826,6 +5863,41 @@ void statement::bind_strings(
 void statement::bind_null(short param_index, std::size_t batch_size)
 {
     impl_->bind_null(param_index, batch_size);
+}
+
+void statement::bind_binary(
+    short param_index,
+    const uint8_t* value,
+    std::size_t value_size,
+    param_direction direction)
+{
+    impl_->bind_binary(direction, param_index, value, value_size);
+}
+
+void statement::bind_binary(
+    short param_index,
+    std::vector<uint8_t> const& value,
+    param_direction direction)
+{
+    impl_->bind_binary(direction, param_index, value.data(), value.size());
+}
+
+void statement::bind_binary(
+    short param_index,
+    std::vector<uint8_t> const& value,
+    bool const* nulls,
+    param_direction direction)
+{
+    impl_->bind_binary(direction, param_index, value.data(), value.size(), nulls);
+}
+
+void statement::bind_binary(
+    short param_index,
+    std::vector<uint8_t> const& value,
+    uint8_t const* null_sentry,
+    param_direction direction)
+{
+    impl_->bind_binary(direction, param_index, value.data(), value.size(), nullptr, null_sentry);
 }
 
 void statement::describe_parameters(
