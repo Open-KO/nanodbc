@@ -635,11 +635,21 @@ struct sql_ctype
 {
 };
 
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
+template <typename T>
+struct sql_ctype<
+    T,
+    typename std::enable_if<is_integral8<T>::value && std::is_unsigned<T>::value>::type>
+{
+    static const SQLSMALLINT value = SQL_C_UTINYINT;
+};
+#else
 template <>
 struct sql_ctype<uint8_t>
 {
     static const SQLSMALLINT value = SQL_C_BINARY;
 };
+#endif
 
 template <typename T>
 struct sql_ctype<
@@ -2237,7 +2247,7 @@ public:
 
     // calls actual ODBC bind parameter function
     template <class T, typename std::enable_if<!is_character<T>::value, int>::type = 0>
-    void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer)
+    void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer, SQLSMALLINT value_ctype)
     {
         NANODBC_ASSERT(buffer.value_size_ > 0 || param.size_ > 0);
 
@@ -2271,7 +2281,7 @@ public:
             stmt_,               // handle
             param.index_ + 1,    // parameter number
             param.iotype_,       // input or output type
-            sql_ctype<T>::value, // value type
+            value_ctype,         // value type
             param.type_,         // parameter type
             param_size,          // column size ignored for many types, but needed for strings
             param.scale_,        // decimal digits
@@ -2286,7 +2296,7 @@ public:
     // Supports code like: query.bind(0, std_string.c_str())
     // In this case, we need to pass nullptr to the final parameter of SQLBindParameter().
     template <class T, typename std::enable_if<is_character<T>::value, int>::type = 0>
-    void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer)
+    void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer, SQLSMALLINT value_ctype)
     {
 #ifndef NANODBC_DISABLE_MSSQL_TVP
         if (open_tvp_)
@@ -2302,7 +2312,7 @@ public:
             stmt_,               // handle
             param.index_ + 1,    // parameter number
             param.iotype_,       // input or output type
-            sql_ctype<T>::value, // value type
+            value_ctype,         // value type
             param.type_,         // parameter type
             param.size_,         // column size ignored for many types, but needed for strings
             param.scale_,        // decimal digits
@@ -2373,7 +2383,7 @@ public:
             }
         }
         bound_buffer<uint8_t> buffer(binary_data_[param_index].data(), batch_size, max_length);
-        bind_parameter(param, buffer);
+        bind_parameter(param, buffer, SQL_C_BINARY);
     }
 
     template <class T, typename = enable_if_character<T>>
@@ -2519,7 +2529,7 @@ void statement::statement_impl::bind(
     }
 
     bound_buffer<T> buffer(values, batch_size);
-    bind_parameter(param, buffer);
+    bind_parameter(param, buffer, sql_ctype<T>::value);
 }
 
 template <class T, typename>
@@ -2596,7 +2606,7 @@ void statement::statement_impl::bind_strings(
 
     auto const buffer_length = value_size * sizeof(T);
     bound_buffer<T> buffer(values, batch_size, buffer_length);
-    bind_parameter(param, buffer);
+    bind_parameter(param, buffer, sql_ctype<T>::value);
 }
 
 template <>
@@ -2927,7 +2937,7 @@ public:
 
     // calls actual ODBC bind parameter function
     template <class T, typename std::enable_if<!is_character<T>::value, int>::type = 0>
-    void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer)
+    void bind_parameter(bound_parameter const& param, bound_buffer<T>& buffer, SQLSMALLINT value_ctype)
     {
         NANODBC_ASSERT(buffer.value_size_ > 0 || param.size_ > 0);
 
@@ -2959,7 +2969,7 @@ public:
             stmt_impl->native_statement_handle(), // handle
             param.index_ + 1,                     // parameter number
             param.iotype_,                        // input or output type
-            sql_ctype<T>::value,                  // value type
+            value_ctype,                          // value type
             param.type_,                          // parameter type
             param_size,   // column size ignored for many types, but needed for strings
             param.scale_, // decimal digits
@@ -3059,7 +3069,7 @@ public:
             }
         }
         bound_buffer<uint8_t> buffer(binary_data_[param_index].data(), batch_size, max_length);
-        bind_parameter(param, buffer);
+        bind_parameter(param, buffer, SQL_C_BINARY);
     }
 
     template <class T, typename = enable_if_character<T>>
@@ -3216,7 +3226,7 @@ void table_valued_parameter::table_valued_parameter_impl::bind(
     }
 
     bound_buffer<T> buffer(values, batch_size);
-    bind_parameter(param, buffer);
+    bind_parameter(param, buffer, sql_ctype<T>::value);
 }
 
 template <class T, typename>
@@ -3297,7 +3307,7 @@ void table_valued_parameter::table_valued_parameter_impl::bind_strings(
 
     auto const buffer_length = value_size * sizeof(T);
     bound_buffer<T> buffer(values, batch_size, buffer_length);
-    bind_parameter(param, buffer);
+    bind_parameter(param, buffer, sql_ctype<T>::value);
 }
 
 template <>
@@ -4022,8 +4032,17 @@ private:
             using namespace std; // if int64_t is in std namespace (in c++11)
             switch (col.sqltype_)
             {
-            case SQL_BIT:
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
             case SQL_TINYINT:
+                col.ctype_ = SQL_C_UTINYINT;
+                col.clen_ = sizeof(uint8_t);
+                break;
+#endif
+
+            case SQL_BIT:
+#ifndef NANODBC_USE_UINT8_FOR_TINYINT
+            case SQL_TINYINT:
+#endif
             case SQL_SMALLINT:
             case SQL_INTEGER:
             case SQL_BIGINT:
@@ -4655,10 +4674,18 @@ inline void result::result_impl::get_ref_impl<_variant_t>(short column, _variant
     }
     case SQL_C_TINYINT:
     case SQL_C_STINYINT:
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
+        result = (char)*(ensure_pdata<unsigned char>(column));
+#else
         result = (char)*(ensure_pdata<short>(column));
+#endif
         break;
     case SQL_C_UTINYINT:
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
+        result = *(ensure_pdata<unsigned char>(column));
+#else
         result = (unsigned char)*(ensure_pdata<unsigned short>(column));
+#endif
         break;
     case SQL_C_SHORT:
     case SQL_C_SSHORT:
@@ -4900,6 +4927,11 @@ void result::result_impl::get_ref_impl(short column, T& result) const
     case SQL_C_WCHAR:
         get_ref_from_string_column(column, result);
         return;
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
+    case SQL_C_UTINYINT:
+        result = (T) * (ensure_pdata<unsigned char>(column));
+        return;
+#endif
     case SQL_C_SSHORT:
         result = (T) * (ensure_pdata<short>(column));
         return;
@@ -5669,6 +5701,9 @@ short statement::parameter_type(short param_index) const
 // The following are the only supported instantiations of statement::bind().
 NANODBC_INSTANTIATE_BINDS(std::string::value_type);
 NANODBC_INSTANTIATE_BINDS(wide_string::value_type);
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
+NANODBC_INSTANTIATE_BINDS(unsigned char);
+#endif
 NANODBC_INSTANTIATE_BINDS(short);
 NANODBC_INSTANTIATE_BINDS(unsigned short);
 NANODBC_INSTANTIATE_BINDS(int);
@@ -6258,6 +6293,9 @@ void table_valued_parameter::close()
 // The following are the only supported instantiations of statement::bind().
 NANODBC_INSTANTIATE_TVP_BINDS(std::string::value_type);
 NANODBC_INSTANTIATE_TVP_BINDS(wide_string::value_type);
+#ifdef NANODBC_USE_UINT8_FOR_TINYINT
+NANODBC_INSTANTIATE_TVP_BINDS(unsigned char);
+#endif
 NANODBC_INSTANTIATE_TVP_BINDS(short);
 NANODBC_INSTANTIATE_TVP_BINDS(unsigned short);
 NANODBC_INSTANTIATE_TVP_BINDS(int);
@@ -7422,6 +7460,7 @@ result::operator bool() const
 // The following are the only supported instantiations of result::get_ref().
 template void result::get_ref(short, std::string::value_type&) const;
 template void result::get_ref(short, wide_string::value_type&) const;
+template void result::get_ref(short, unsigned char&) const;
 template void result::get_ref(short, short&) const;
 template void result::get_ref(short, unsigned short&) const;
 template void result::get_ref(short, int&) const;
@@ -7443,6 +7482,7 @@ template void result::get_ref(short, _variant_t&) const;
 
 template void result::get_ref(string const&, std::string::value_type&) const;
 template void result::get_ref(string const&, wide_string::value_type&) const;
+template void result::get_ref(string const&, unsigned char&) const;
 template void result::get_ref(string const&, short&) const;
 template void result::get_ref(string const&, unsigned short&) const;
 template void result::get_ref(string const&, int&) const;
@@ -7466,6 +7506,7 @@ template void result::get_ref(string const&, _variant_t&) const;
 // The following are the only supported instantiations of result::get() with optional support.
 template void result::get_ref(short, std::optional<std::string::value_type>&) const;
 template void result::get_ref(short, std::optional<wide_string::value_type>&) const;
+template void result::get_ref(short, std::optional<unsigned char>&) const;
 template void result::get_ref(short, std::optional<short>&) const;
 template void result::get_ref(short, std::optional<unsigned short>&) const;
 template void result::get_ref(short, std::optional<int>&) const;
@@ -7487,6 +7528,7 @@ template void result::get_ref(short, std::optional<_variant_t>&) const;
 
 template void result::get_ref(string const&, std::optional<std::string::value_type>&) const;
 template void result::get_ref(string const&, std::optional<wide_string::value_type>&) const;
+template void result::get_ref(string const&, std::optional<unsigned char>&) const;
 template void result::get_ref(string const&, std::optional<short>&) const;
 template void result::get_ref(string const&, std::optional<unsigned short>&) const;
 template void result::get_ref(string const&, std::optional<int>&) const;
@@ -7512,6 +7554,7 @@ template void
 result::get_ref(short, const std::string::value_type&, std::string::value_type&) const;
 template void
 result::get_ref(short, const wide_string::value_type&, wide_string::value_type&) const;
+template void result::get_ref(short, const unsigned char&, unsigned char&) const;
 template void result::get_ref(short, const short&, short&) const;
 template void result::get_ref(short, const unsigned short&, unsigned short&) const;
 template void result::get_ref(short, const int&, int&) const;
@@ -7536,6 +7579,7 @@ template void
 result::get_ref(string const&, const std::string::value_type&, std::string::value_type&) const;
 template void
 result::get_ref(string const&, const wide_string::value_type&, wide_string::value_type&) const;
+template void result::get_ref(string const&, const unsigned char&, unsigned char&) const;
 template void result::get_ref(string const&, const short&, short&) const;
 template void result::get_ref(string const&, const unsigned short&, unsigned short&) const;
 template void result::get_ref(string const&, const int&, int&) const;
@@ -7561,6 +7605,7 @@ template void result::get_ref(string const&, _variant_t const&, _variant_t&) con
 // The following are the only supported instantiations of result::get().
 template std::string::value_type result::get(short) const;
 template wide_string::value_type result::get(short) const;
+template unsigned char result::get(short) const;
 template short result::get(short) const;
 template unsigned short result::get(short) const;
 template int result::get(short) const;
@@ -7583,6 +7628,7 @@ template _variant_t result::get(short) const;
 
 template std::string::value_type result::get(string const&) const;
 template wide_string::value_type result::get(string const&) const;
+template unsigned char result::get(string const&) const;
 template short result::get(string const&) const;
 template unsigned short result::get(string const&) const;
 template int result::get(string const&) const;
@@ -7607,6 +7653,7 @@ template _variant_t result::get(string const&) const;
 // The following are the only supported instantiations of result::get() with optional support.
 template std::optional<std::string::value_type> result::get(short) const;
 template std::optional<wide_string::value_type> result::get(short) const;
+template std::optional<unsigned char> result::get(short) const;
 template std::optional<short> result::get(short) const;
 template std::optional<unsigned short> result::get(short) const;
 template std::optional<int> result::get(short) const;
@@ -7629,6 +7676,7 @@ template std::optional<_variant_t> result::get(short) const;
 
 template std::optional<std::string::value_type> result::get(string const&) const;
 template std::optional<wide_string::value_type> result::get(string const&) const;
+template std::optional<unsigned char> result::get(string const&) const;
 template std::optional<short> result::get(string const&) const;
 template std::optional<unsigned short> result::get(string const&) const;
 template std::optional<int> result::get(string const&) const;
@@ -7653,6 +7701,7 @@ template std::optional<_variant_t> result::get(string const&) const;
 // The following are the only supported instantiations of result::get() with fallback.
 template std::string::value_type result::get(short, const std::string::value_type&) const;
 template wide_string::value_type result::get(short, const wide_string::value_type&) const;
+template unsigned char result::get(short, const unsigned char&) const;
 template short result::get(short, const short&) const;
 template unsigned short result::get(short, const unsigned short&) const;
 template int result::get(short, const int&) const;
@@ -7675,6 +7724,7 @@ template _variant_t result::get(short, _variant_t const&) const;
 
 template std::string::value_type result::get(string const&, const std::string::value_type&) const;
 template wide_string::value_type result::get(string const&, const wide_string::value_type&) const;
+template unsigned char result::get(string const&, const unsigned char&) const;
 template short result::get(string const&, const short&) const;
 template unsigned short result::get(string const&, const unsigned short&) const;
 template int result::get(string const&, const int&) const;
