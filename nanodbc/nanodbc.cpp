@@ -3827,13 +3827,22 @@ public:
     template <class T, std::enable_if_t<is_optional<T>::value, int> = 0>
     void get_ref(short column, T& result) const
     {
+        using RealType = std::remove_reference_t<decltype(*result)>;
+
         throw_if_column_is_out_of_range(column);
         if (is_null(column))
         {
             opt_reset(result);
             return;
         }
-        get_ref_impl<std::remove_reference_t<decltype(*result)>>(column, *result);
+
+        RealType val = {};
+        get_ref_impl<RealType>(column, val);
+
+        if (is_null(column))
+            opt_reset(result);
+        else
+            result = std::move(val);
     }
 #endif
 
@@ -3877,13 +3886,22 @@ public:
     template <class T, std::enable_if_t<is_optional<T>::value, int> = 0>
     void get_ref(string const& column_name, T& result) const
     {
+        using RealType = std::remove_reference_t<decltype(*result)>;
+
         short const column = this->column(column_name);
         if (is_null(column))
         {
             opt_reset(result);
             return;
         }
-        get_ref_impl<std::remove_reference_t<decltype(*result)>>(column, *result);
+
+        RealType val = {};
+        get_ref_impl<RealType>(column, val);
+
+        if (is_null(column))
+            opt_reset(result);
+        else
+            result = std::move(val);
     }
 #endif
 
