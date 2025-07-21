@@ -4528,6 +4528,7 @@ inline void result::result_impl::get_ref_impl<std::vector<std::uint8_t>>(
     switch (col.ctype_)
     {
     case SQL_C_BINARY:
+    case SQL_C_CHAR:
     {
         if (!is_bound(column))
         {
