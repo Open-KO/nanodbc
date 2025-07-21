@@ -4560,7 +4560,7 @@ inline void result::result_impl::get_ref_impl<std::vector<std::uint8_t>>(
     std::vector<std::uint8_t>& result) const
 {
     bound_column& col = bound_columns_[column];
-    const SQLULEN column_size = col.sqlsize_;
+    SQLULEN column_size = col.sqlsize_;
 
     switch (col.ctype_)
     {
@@ -4615,8 +4615,17 @@ inline void result::result_impl::get_ref_impl<std::vector<std::uint8_t>>(
         else
         {
             // Read fixed-length binary data
-            const char* s = col.pdata_ + rowset_position_ * col.clen_;
-            result.assign(s, s + column_size);
+            // Use the field's fetched length
+            column_size = col.cbdata_[static_cast<size_t>(rowset_position_)];
+            if (column_size > 0)
+            {
+                const char* s = col.pdata_ + rowset_position_ * col.clen_;
+                result.assign(s, s + column_size);
+            }
+            else
+            {
+                result.clear();
+            }
         }
         return;
     }
