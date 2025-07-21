@@ -4317,7 +4317,7 @@ inline void result::result_impl::get_ref_impl(short column, T& result) const
             // The length of the data available to return, decreasing with subsequent SQLGetData
             // calls.
             // But, NOT the length of data returned into the buffer (apart from the final call).
-            SQLLEN ValueLenOrInd;
+            SQLLEN ValueLenOrInd = SQL_NULL_DATA;
             SQLRETURN rc;
 
 #if defined(NANODBC_DO_ASYNC_IMPL)
@@ -4374,7 +4374,7 @@ inline void result::result_impl::get_ref_impl(short column, T& result) const
             // The length of the data available to return, decreasing with subsequent SQLGetData
             // calls.
             // But, NOT the length of data returned into the buffer (apart from the final call).
-            SQLLEN ValueLenOrInd;
+            SQLLEN ValueLenOrInd = SQL_NULL_DATA;
             SQLRETURN rc;
 
 #if defined(NANODBC_DO_ASYNC_IMPL)
@@ -4576,7 +4576,7 @@ inline void result::result_impl::get_ref_impl<std::vector<std::uint8_t>>(
             // The length of the data available to return, decreasing with subsequent SQLGetData
             // calls.
             // But, NOT the length of data returned into the buffer (apart from the final call).
-            SQLLEN ValueLenOrInd;
+            SQLLEN ValueLenOrInd = SQL_NULL_DATA;
             SQLRETURN rc;
 
 #if defined(NANODBC_DO_ASYNC_IMPL)
@@ -4895,7 +4895,7 @@ template <typename T>
 std::unique_ptr<T, std::function<void(T*)>> result::result_impl::ensure_pdata(short column) const
 {
     bound_column& col = bound_columns_[column];
-    SQLLEN ValueLenOrInd;
+    SQLLEN ValueLenOrInd = SQL_NULL_DATA;
     SQLRETURN rc;
     if (is_bound(column))
     {
