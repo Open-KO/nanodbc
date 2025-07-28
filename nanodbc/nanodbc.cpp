@@ -3819,7 +3819,14 @@ public:
     {
         throw_if_column_is_out_of_range(column);
         if (is_null(column))
+        {
+#ifdef NANODBC_DISABLE_NULL_ACCESS_ERROR
+            result = T{};
+            return;
+#else
             throw null_access_error();
+#endif
+        }
         get_ref_impl<T>(column, result);
     }
 
@@ -3878,7 +3885,14 @@ public:
     {
         short const column = this->column(column_name);
         if (is_null(column))
+        {
+#ifdef NANODBC_DISABLE_NULL_ACCESS_ERROR
+            result = T{};
+            return;
+#else
             throw null_access_error();
+#endif
+        }
         get_ref_impl<T>(column, result);
     }
 
