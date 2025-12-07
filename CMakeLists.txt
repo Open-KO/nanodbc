@@ -33,6 +33,7 @@ option( NANODBC_DISABLE_MSSQL_TVP "Do not use MSSQL Table-valued parameter (defa
 option( NANODBC_DISABLE_ASYNC "Disable async features entirely (default off)" OFF )
 option( NANODBC_ENABLE_UNICODE "Enable Unicode support (default on)" OFF )
 option( NANODBC_ENABLE_WORKAROUND_NODATA "Enable SQL_NO_DATA workaround (see Issue #33) (default off)" OFF )
+option( NANODBC_USE_UINT8_FOR_TINYINT "Enable use of uint8 to represent TINYINT fields instead of int16 (default off)" OFF )
 
 include( CheckCXXCompilerFlag )
 check_cxx_compiler_flag( "-stdlib=libc++" CXX_COMPILER_SUPPORTS_LIBCXX )
@@ -167,12 +168,14 @@ message( STATUS "nanodbc feature: Allocate buffers of sufficient length such tha
 message( STATUS "nanodbc feature: Enable SQL_NO_DATA bug workaround - ${NANODBC_ENABLE_WORKAROUND_NODATA}" )
 message( STATUS "nanodbc feature: Disable async features - ${NANODBC_DISABLE_ASYNC}" )
 message( STATUS "nanodbc feature: Disable MSSQL Table-valued parameter - ${NANODBC_DISABLE_MSSQL_TVP}" )
+message( STATUS "nanodbc feature: Enable use of uint8 to represent TINYINT fields instead of int16 - ${NANODBC_USE_UINT8_FOR_TINYINT}" )
 
 target_compile_definitions( nanodbc PUBLIC
   $<$<BOOL:${NANODBC_DISABLE_MSSQL_TVP}>:NANODBC_DISABLE_MSSQL_TVP>
   $<$<BOOL:${NANODBC_OVERALLOCATE_CHAR}>:NANODBC_OVERALLOCATE_CHAR>
   $<$<BOOL:${NANODBC_ENABLE_WORKAROUND_NODATA}>:NANODBC_ENABLE_WORKAROUND_NODATA>
   $<$<BOOL:${NANODBC_DISABLE_ASYNC}>:NANODBC_DISABLE_ASYNC>
+  $<$<BOOL:${NANODBC_USE_UINT8_FOR_TINYINT}>:NANODBC_USE_UINT8_FOR_TINYINT>
 )
 
 # #######################################
