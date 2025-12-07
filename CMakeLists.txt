@@ -29,12 +29,12 @@ cmake_policy( SET CMP0127 NEW )
 
 # nanodbc specific options
 option( NANODBC_DISABLE_ASYNC "Disable async features entirely (default off)" OFF )
-option( NANODBC_DISABLE_MSSQL_TVP "Do not use MSSQL Table-valued parameter (default off)" OFF )
+option( NANODBC_DISABLE_MSSQL_TVP "Do not use MSSQL Table-valued parameter (default on)" ON )
 option( NANODBC_DISABLE_ASYNC "Disable async features entirely (default off)" OFF )
-option( NANODBC_DISABLE_NULL_ACCESS_ERROR "Disable null_access_error() exceptions thrown when fetching null fields; result is initialized to its default instead (default off)" OFF )
-option( NANODBC_ENABLE_UNICODE "Enable Unicode support (default on)" OFF )
+option( NANODBC_DISABLE_NULL_ACCESS_ERROR "Disable null_access_error() exceptions thrown when fetching null fields; result is initialized to its default instead (default on)" ON )
+option( NANODBC_ENABLE_UNICODE "Enable Unicode support (default on)" ON )
 option( NANODBC_ENABLE_WORKAROUND_NODATA "Enable SQL_NO_DATA workaround (see Issue #33) (default off)" OFF )
-option( NANODBC_USE_UINT8_FOR_TINYINT "Enable use of uint8 to represent TINYINT fields instead of int16 (default off)" OFF )
+option( NANODBC_USE_UINT8_FOR_TINYINT "Enable use of uint8 to represent TINYINT fields instead of int16 (default on)" ON )
 
 include( CheckCXXCompilerFlag )
 check_cxx_compiler_flag( "-stdlib=libc++" CXX_COMPILER_SUPPORTS_LIBCXX )
